@@ -374,9 +374,6 @@ function App() {
                    address={address}
                    connectWallet={connectWallet}
                    updateUsername={updateUsername}
-                   submitGameScore={submitGameScore}
-                   getPlayerStats={getPlayerStats}
-                   getRecentGames={getRecentGames}
                    loading={updateLoading}
                    error={error}
                  />
@@ -391,7 +388,6 @@ function App() {
                address ? (
                  <GamePage
                    playerDetails={playerDetails}
-                   submitGameScore={submitGameScore}
                  />
                ) : (
                  <Navigate to="/" replace />
