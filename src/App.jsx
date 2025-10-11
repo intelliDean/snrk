@@ -11,6 +11,8 @@ import LandingPage from "./pages/LandingPage";
 import Dashboard from "./pages/Dashboard";
 import GamePage from "./pages/GamePage";
 import { contractABI } from "./abi";
+import { registerPlayer, updateScore } from "./edgeFunctionService";
+import { getPlayerStats, getRecentGames } from "./gameScoreService";
 
 function App() {
   const [provider, setProvider] = useState(null);
@@ -30,8 +32,6 @@ function App() {
       import.meta.env.VITE_SEPOLIA_URL ||
       "https://free-rpc.nethermind.io/sepolia-juno",
   });
-
-  const backendUrl = import.meta.env.VITE_APP_URL || "http://127.0.0.1:8080";
 
   useEffect(() => {
     console.log("App mounted, delaying wallet connection");
@@ -85,91 +85,38 @@ function App() {
         setAddress(wallet.selectedAddress);
 
         try {
-          console.log("Sending wallet address:", wallet.selectedAddress);
-          const response = await fetch(`${backendUrl}/create_user`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ wallet_address: wallet.selectedAddress }),
-          });
+          console.log("Checking/registering user:", wallet.selectedAddress);
+          const username = `user_${wallet.selectedAddress.slice(2, 10)}`;
 
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(
-              `Failed to fetch user data: ${errorData.error || "Unknown error"}`
-            );
+          const registerResult = await registerPlayer(wallet.selectedAddress, username);
+
+          if (!registerResult.success) {
+            throw new Error(registerResult.error || "Registration failed");
           }
 
-          const data = await response.json();
-          console.log("Backend response:", data);
-          console.log("Status response:", data.status);
+          console.log("Registration response:", registerResult);
 
-          if (data.status === "New") {
-            try {
-              console.log("Contract ABI:", contractABI);
+          const statsResult = await getPlayerStats(wallet.selectedAddress);
 
-              const contract = new Contract(
-                contractABI,
-                CONTRACT_ADDRESS,
-                wallet.account
-              );
-              console.log("Contract instance:", contract);
-
-              const res = await contract.player_registers(
-                wallet.selectedAddress,
-                data.username
-              );
-              const txHash = res?.transaction_hash;
-              if (!txHash) {
-                throw new Error(
-                  "No transaction hash returned from contract call"
-                );
-              }
-              const txResult = await provider.waitForTransaction(txHash);
-              console.log("Contract transaction:", txResult);
-            } catch (contractError) {
-              console.error("Contract call failed:", contractError);
-
-              //call the backend to delete the user since contract call failed
-              const response = await fetch(`${backendUrl}/delete_user`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  wallet_address: wallet.selectedAddress,
-                }),
-              });
-
-              if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(
-                  `Failed to delete user data from database: ${
-                    errorData.error || "Unknown error"
-                  }`
-                );
-              }
-
-              throw new Error(
-                `Failed to register player on contract: ${contractError.message}`
-              );
-            }
+          if (statsResult.success && statsResult.data) {
+            setPlayerDetails({
+              username: statsResult.data.username,
+              position: 0,
+              walletAddress: statsResult.data.wallet_address,
+              score: statsResult.data.highest_score.toString(),
+            });
           } else {
-            console.log("Existing user, skipping contract registration");
+            setPlayerDetails({
+              username: username,
+              position: 0,
+              walletAddress: wallet.selectedAddress,
+              score: "0",
+            });
           }
 
-          setPlayerDetails({
-            username: data.username,
-            position: data.position,
-            walletAddress: data.address,
-            score: data.highest_score.toString(),
-          });
           console.log(`Connected: ${wallet.selectedAddress.slice(0, 10)}...`);
         } catch (fetchError) {
           console.warn("Backend sync failed, using local data:", fetchError);
-
-          //THIS WILL BE REMOVED LATER, ONLY HERE BECAUSE OF BOLT
           setPlayerDetails({
             username: `user_${wallet.selectedAddress.slice(2, 10)}`,
             position: 0,
@@ -258,84 +205,8 @@ function App() {
     setUpdateLoading(true);
     setError(null);
     try {
-      // Step 1: Check username availability and fetch user
-      const checkResponse = await fetch(`${backendUrl}/check_user`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          wallet_address: address,
-          username: newUsername,
-        }),
-      });
-
-      if (!checkResponse.ok) {
-        const errorData = await checkResponse.json();
-        throw new Error(
-          `Failed to check user: ${errorData.error || "Unknown error"}`
-        );
-      }
-
-      const userData = await checkResponse.json();
-      console.log("Check user response:", userData);
-
-      // Step 2: Check if updated is false and call contract if true
-      if (userData.updated === false) {
-        try {
-          // const abi = contractAbi;
-          // if (!abi || !Array.isArray(abi)) {
-          //   throw new Error("Invalid or missing ABI");
-          // }
-          // console.log("Contract ABI:", abi);
-
-          const contract = await getContract(CONTRACT_ADDRESS, 2);
-          console.log("Contract instance:", contract);
-
-          const res = await contract.player_update_username(newUsername);
-          const txHash = res?.transaction_hash;
-          if (!txHash) {
-            throw new Error("No transaction hash returned from contract call");
-          }
-          const txResult = await provider.waitForTransaction(txHash);
-          console.log("Contract transaction:", txResult);
-        } catch (contractError) {
-          console.error("Contract call failed:", contractError);
-          throw new Error(
-            `Failed to update username on contract: ${contractError.message}`
-          );
-        }
-      } else {
-        console.log("User already updated, skipping contract call");
-      }
-
-      // Step 3: Update username in backend
-      const updateResponse = await fetch(`${backendUrl}/update_user`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          wallet_address: address,
-          new_username: newUsername,
-        }),
-      });
-
-      if (!updateResponse.ok) {
-        const errorData = await updateResponse.json();
-        throw new Error(
-          `Failed to update username: ${errorData.error || "Unknown error"}`
-        );
-      }
-
-      const updateData = await updateResponse.json();
-      console.log("Update response:", updateData);
-      setPlayerDetails({
-        username: updateData.username,
-        position: updateData.position,
-        walletAddress: updateData.address,
-        score: updateData.highest_score.toString(),
-      });
+      console.log("Username update feature not yet implemented");
+      setError("Username update feature coming soon");
     } catch (error) {
       const message = error.message || "Unknown error";
       setError(message);
@@ -374,7 +245,7 @@ function App() {
                    address={address}
                    connectWallet={connectWallet}
                    updateUsername={updateUsername}
-                   submitGameScore={submitGameScore}
+                   submitGameScore={updateScore}
                    getPlayerStats={getPlayerStats}
                    getRecentGames={getRecentGames}
                    loading={updateLoading}
@@ -391,7 +262,7 @@ function App() {
                address ? (
                  <GamePage
                    playerDetails={playerDetails}
-                   submitGameScore={submitGameScore}
+                   submitGameScore={updateScore}
                  />
                ) : (
                  <Navigate to="/" replace />
