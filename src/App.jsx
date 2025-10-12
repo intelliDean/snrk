@@ -347,62 +347,59 @@ function App() {
 
  return (
    <Suspense fallback={<div className="loading-container">Loading App...</div>}>
-     <div className="app-container">
-       <h1 style={{ color: "white" }}>App is Running</h1>
-       <Router>
-         <Routes>
-           <Route
-             path="/"
-             element={
-               address ? (
-                 <Navigate to="/dashboard" replace />
-               ) : (
-                 <LandingPage
-                   connectWallet={connectWallet}
-                   loading={loading}
-                   error={error}
-                 />
-               )
-             }
-           />
-           <Route
-             path="/dashboard"
-             element={
-               address ? (
-                 <Dashboard
-                   playerDetails={playerDetails}
-                   address={address}
-                   connectWallet={connectWallet}
-                   updateUsername={updateUsername}
-                   loading={updateLoading}
-                   error={error}
-                 />
-               ) : (
-                 <Navigate to="/" replace />
-               )
-             }
-           />
-           <Route
-             path="/game"
-             element={
-               address ? (
-                 <GamePage
-                   playerDetails={playerDetails}
-                 />
-               ) : (
-                 <Navigate to="/" replace />
-               )
-             }
-           />
-           <Route
-             path="*"
-             element={
-               <div className="error-container">404: Page Not Found</div>
-             }
-           />
-         </Routes>
-       </Router>
-     </div>
+     <Router>
+       <Routes>
+         <Route
+           path="/"
+           element={
+             address ? (
+               <Navigate to="/dashboard" replace />
+             ) : (
+               <LandingPage
+                 connectWallet={connectWallet}
+                 loading={loading}
+                 error={error}
+               />
+             )
+           }
+         />
+         <Route
+           path="/dashboard"
+           element={
+             address ? (
+               <Dashboard
+                 playerDetails={playerDetails}
+                 address={address}
+                 connectWallet={connectWallet}
+                 updateUsername={updateUsername}
+                 loading={updateLoading}
+                 error={error}
+               />
+             ) : (
+               <Navigate to="/" replace />
+             )
+           }
+         />
+         <Route
+           path="/game"
+           element={
+             address ? (
+               <GamePage
+                 playerDetails={playerDetails}
+               />
+             ) : (
+               <Navigate to="/" replace />
+             )
+           }
+         />
+         <Route
+           path="*"
+           element={
+             <div className="error-container">404: Page Not Found</div>
+           }
+         />
+       </Routes>
+     </Router>
    </Suspense>
  );
 }
