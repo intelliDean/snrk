@@ -413,6 +413,10 @@ function GamePage({ playerDetails }) {
 
     const initGame = () => {
       console.log("Initializing game...");
+      console.log("Canvas element:", document.getElementById("canvas"));
+      console.log("CreateJS available:", !!window.createjs);
+      console.log("CMain available:", !!window.CMain);
+
       setIsLoading(false);
 
       if (!window.createjs) {
@@ -442,6 +446,7 @@ function GamePage({ playerDetails }) {
           }
         };
 
+        console.log("Creating CMain instance...");
         const oMain = new window.CMain({
           hero_rotation_speed: 10,
           hero_speed_up: 15,
@@ -451,21 +456,25 @@ function GamePage({ playerDetails }) {
           fullscreen: true,
           check_orientation: true,
         });
-        console.log("Game instance created successfully");
+        console.log("Game instance created:", oMain);
+        console.log("Stage:", window.s_oStage);
 
         if (window.isIOS && window.isIOS()) {
           setTimeout(() => {
             if (window.sizeHandler) {
+              console.log("Calling iOS sizeHandler");
               window.sizeHandler();
             }
           }, 200);
         } else {
           if (window.sizeHandler) {
+            console.log("Calling sizeHandler");
             window.sizeHandler();
           }
         }
       } catch (error) {
         console.error("Game initialization error:", error);
+        console.error("Error stack:", error.stack);
         setError(`Game initialization failed: ${error.message}`);
       }
     };
